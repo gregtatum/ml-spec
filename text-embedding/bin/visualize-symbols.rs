@@ -1,49 +1,53 @@
-use text_embedding::{process_wiki_text, read_lines, StringTable};
+use text_embedding::{process_wiki_text, read_lines, SymbolIndex, SymbolTable};
 
-type StringIndex = usize;
+/// Ensure the vocab has some common punctuation. This should be more complete, but
+/// it gets the basic idea across.
+fn add_punctuation_symbols(symbol_table: &mut SymbolTable) {
+    symbol_table.index(" ");
+    symbol_table.index(".");
+    symbol_table.index("!");
+    symbol_table.index(",");
 
-fn build_string_table(path: &str) -> StringTable {
-    let mut string_table = StringTable::new();
+    symbol_table.index("1");
+    symbol_table.index("2");
+    symbol_table.index("3");
+    symbol_table.index("4");
+    symbol_table.index("5");
+    symbol_table.index("6");
+    symbol_table.index("7");
+    symbol_table.index("8");
+    symbol_table.index("9");
+}
 
-    // Ensure the vocab has some common punctuation. This should be more complete, but
-    // it gets the basic idea across.
-    string_table.index(" ");
-    string_table.index(".");
-    string_table.index("!");
-    string_table.index(",");
+fn build_symbol_table(path: &str) -> SymbolTable {
+    let mut symbol_table = SymbolTable::new();
 
-    string_table.index("1");
-    string_table.index("2");
-    string_table.index("3");
-    string_table.index("4");
-    string_table.index("5");
-    string_table.index("6");
-    string_table.index("7");
-    string_table.index("8");
-    string_table.index("9");
+    add_punctuation_symbols(&mut symbol_table);
 
     for line in read_lines(path) {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if let Some(word) = parts.get(1) {
-            string_table.index(*word);
+            symbol_table.index(*word);
         }
     }
 
-    string_table
+    symbol_table
 }
 
-fn add_symbols(string_table: &StringTable, text: &str) -> Vec<StringIndex> {
-    let mut symbols: Vec<StringIndex> = Vec::new();
+fn convert_to_symbols(symbol_table: &SymbolTable, text: &str) -> Vec<SymbolIndex> {
+    let mut symbols: Vec<SymbolIndex> = Vec::new();
     let mut start_index = 0;
     let mut end_index = 1;
-    let mut prev_symbol: Option<StringIndex> = None;
+    let mut prev_symbol: Option<SymbolIndex> = None;
 
     loop {
         let slice = &text[start_index..end_index];
-        if let Some(index) = string_table.maybe_index(slice) {
+        println!("slice {:?}", slice);
+        if let Some(index) = symbol_table.maybe_index(slice) {
             end_index += 1;
             if end_index > text.len() {
                 // This is the last symbol.
+                println!("last symbol {:?}", slice);
                 symbols.push(index);
                 break;
             } else {
@@ -52,8 +56,12 @@ fn add_symbols(string_table: &StringTable, text: &str) -> Vec<StringIndex> {
             }
         }
         // There was no match for the symbol.
-        if let Some(prev_symbol) = prev_symbol {
-            symbols.push(prev_symbol);
+        if let Some(index) = prev_symbol {
+            println!(
+                "No match, adding previous symbol {:?}",
+                symbol_table.symbol(index)
+            );
+            symbols.push(index);
         }
         if end_index - start_index == 1 {
             // This is an unknown symbols
@@ -69,7 +77,7 @@ fn add_symbols(string_table: &StringTable, text: &str) -> Vec<StringIndex> {
 
 fn main() {
     println!("Building the string table:");
-    let string_table = build_string_table("./data/text/en-dictionary-symbols.txt");
+    let symbol_table = build_symbol_table("./data/text/en-dictionary-symbols.txt");
 
     println!("Processing the wiki text:");
     let mut i = 0;
@@ -80,14 +88,48 @@ fn main() {
         }
         let text = text.to_lowercase();
 
-        let symbols = add_symbols(&string_table, &text);
+        let symbols = convert_to_symbols(&symbol_table, &text);
 
         for symbol in &symbols[0..100] {
-            print!("{}", string_table.string(*symbol));
+            print!("{}", symbol_table.symbol(*symbol));
         }
         println!();
 
         i += 1;
         true
     });
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn build_symbol_table() -> SymbolTable {
+        let words = vec![
+            "the", "quick", "br", "own", "fox", "jump", "s", "over", "the", "la", "zy", "dog", "a",
+            "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r",
+            "s", "t", "u", "v", "w", "x", "y", "z",
+        ];
+        let mut symbol_table = SymbolTable::new();
+        for word in &words {
+            symbol_table.index(*word);
+        }
+        add_punctuation_symbols(&mut symbol_table);
+        symbol_table
+    }
+
+    fn build_test(text: &str) -> Vec<String> {
+        let symbol_table = build_symbol_table();
+        let text = text.to_lowercase();
+        let symbols = convert_to_symbols(&symbol_table, &text);
+        symbols
+            .iter()
+            .map(|index| symbol_table.symbol(*index).to_string())
+            .collect()
+    }
+
+    #[test]
+    fn test_convert_to_symbols() {
+        assert_eq!(build_test("The"), vec!["The"]);
+    }
 }

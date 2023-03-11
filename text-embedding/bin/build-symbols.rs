@@ -5,16 +5,16 @@ use std::env;
 use std::fs::File;
 use std::io::Write;
 use text_embedding::process_wiki_text;
-use text_embedding::StringTable;
+use text_embedding::SymbolTable;
 
-type StringIndex = usize;
+type SymbolIndex = usize;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-struct Symbol(StringIndex);
+struct Symbol(SymbolIndex);
 
 impl Symbol {
-    fn string<'a>(&self, string_table: &'a StringTable) -> &'a str {
-        string_table.string(self.0)
+    fn string<'a>(&self, symbol_table: &'a SymbolTable) -> &'a str {
+        symbol_table.symbol(self.0)
     }
 
     fn index(&self) -> usize {
@@ -22,10 +22,10 @@ impl Symbol {
     }
 }
 
-fn string_slice(string_table: &StringTable, symbols: &[Symbol]) -> String {
+fn string_slice(symbol_table: &SymbolTable, symbols: &[Symbol]) -> String {
     let mut string = String::new();
     for symbol in symbols {
-        string.push_str(symbol.string(&string_table));
+        string.push_str(symbol.string(&symbol_table));
     }
     string
 }
@@ -120,9 +120,9 @@ fn count_chars() {
 fn build_symbols(
     dictionary: &Vec<(String, u32)>,
     iterations: usize,
-) -> (Vec<(Symbol, u32)>, StringTable) {
+) -> (Vec<(Symbol, u32)>, SymbolTable) {
     println!("Build symbols");
-    let mut string_table = StringTable::new();
+    let mut symbol_table = SymbolTable::new();
 
     let mut scratch_string = String::new();
 
@@ -135,7 +135,7 @@ fn build_symbols(
                 .map(|ch| {
                     scratch_string.clear();
                     scratch_string.push(ch);
-                    Symbol(string_table.index(&scratch_string))
+                    Symbol(symbol_table.index(&scratch_string))
                 })
                 .collect();
             (symbols, *frequency)
@@ -160,15 +160,15 @@ fn build_symbols(
 
         println!(
             "Merge: {}{}",
-            pair_to_merge.0.string(&string_table),
-            pair_to_merge.1.string(&string_table)
+            pair_to_merge.0.string(&symbol_table),
+            pair_to_merge.1.string(&symbol_table)
         );
 
         // Create the new merged symbol.
         let merged_symbol: Symbol = {
-            let mut merged_string = pair_to_merge.0.string(&string_table).to_string();
-            merged_string.push_str(pair_to_merge.1.string(&string_table));
-            Symbol(string_table.take_string(merged_string))
+            let mut merged_string = pair_to_merge.0.string(&symbol_table).to_string();
+            merged_string.push_str(pair_to_merge.1.string(&symbol_table));
+            Symbol(symbol_table.index(merged_string))
         };
 
         // Merge the symbol in the dictionary.
@@ -203,13 +203,13 @@ fn build_symbols(
     let mut final_symbols: Vec<(Symbol, u32)> = final_symbols.into_iter().collect();
     final_symbols.sort_by(|(_, a), (_, b)| b.cmp(a));
 
-    (final_symbols, string_table)
+    (final_symbols, symbol_table)
 }
 
 // Reports on the symbol pairs.
 fn report_symbol_pairs(
     symbol_pair_counts: &HashMap<(Symbol, Symbol), u32>,
-    string_table: &StringTable,
+    symbol_table: &SymbolTable,
 ) {
     // Sort the pairs by frequency.
     let mut sorted: Vec<(&(Symbol, Symbol), &u32)> = symbol_pair_counts.iter().collect();
@@ -219,8 +219,8 @@ fn report_symbol_pairs(
     for ((a, b), frequency) in &sorted[0..50] {
         println!(
             "  \"{}{}\" - {}",
-            a.string(&string_table),
-            b.string(&string_table),
+            a.string(&symbol_table),
+            b.string(&symbol_table),
             frequency
         );
     }
@@ -234,12 +234,12 @@ fn main() {
         // Don't use things with only 1 entry.
         .filter(|entry| entry.1 > 1)
         .collect();
-    let (symbols, string_table) = build_symbols(&dictionary, 5000);
+    let (symbols, symbol_table) = build_symbols(&dictionary, 5000);
 
     // Report an write out the symbols.
     println!("Symbols for the language: {}", symbols.len());
     for (symbol, count) in &symbols {
-        println!("  {} - {:?}", count, symbol.string(&string_table));
+        println!("  {} - {:?}", count, symbol.string(&symbol_table));
     }
 
     {
@@ -247,7 +247,7 @@ fn main() {
         println!("Writing out results to: {}", path);
         let mut file = File::create(path).unwrap();
         for (symbol, count) in &symbols {
-            writeln!(file, "{: <12} {}", count, symbol.string(&string_table)).unwrap();
+            writeln!(file, "{: <12} {}", count, symbol.string(&symbol_table)).unwrap();
         }
     }
 

@@ -3,26 +3,26 @@ use std::{
     io::{BufRead, BufReader},
 };
 
-pub type StringIndex = usize;
+pub type SymbolIndex = usize;
 
 /// Stores a unique list of strings, so that strings can be operated up via stable
 /// indexes. This makes for cheap comparisons and storage of references to strings.
 #[derive(Debug)]
-pub struct StringTable {
+pub struct SymbolTable {
     strings: Vec<String>,
 }
 
-impl StringTable {
-    /// Create a new StringTable.
-    pub fn new() -> StringTable {
-        StringTable {
+impl SymbolTable {
+    /// Create a new SymbolTable.
+    pub fn new() -> SymbolTable {
+        SymbolTable {
             strings: Vec::new(),
         }
     }
 
     /// Interns a string if it exists, and returns the index. Otherwise it discards the
     /// string and returns an existing index. O(n)
-    pub fn index<T: Into<String> + AsRef<str>>(&mut self, string: T) -> StringIndex {
+    pub fn index<T: Into<String> + AsRef<str>>(&mut self, string: T) -> SymbolIndex {
         if let Some(index) = self.maybe_index(string.as_ref()) {
             return index;
         }
@@ -32,12 +32,12 @@ impl StringTable {
     }
 
     /// Gets an index for a string if it exists.
-    pub fn maybe_index<T: AsRef<str>>(&self, string: T) -> Option<StringIndex> {
+    pub fn maybe_index<T: AsRef<str>>(&self, string: T) -> Option<SymbolIndex> {
         self.strings.iter().position(|s| s == string.as_ref())
     }
 
     /// Returns a string from an index.
-    pub fn string(&self, index: StringIndex) -> &str {
+    pub fn symbol(&self, index: SymbolIndex) -> &str {
         match self.strings.get(index) {
             Some(string) => &**string,
             None => "",
