@@ -9,7 +9,7 @@ This implementation is based off of the paper [Neural Machine Translation of Rar
 ### Running
 
 ```
-cargo run -p text-embedding
+cargo run -b build-symbols
 ```
 
 This takes in the information in [`data/text/`](../data/text) and outputs a `{LANG}-dictionary-symbols.txt` into the same folder. The text contains a number first, which is the frequency of that symbol, and then the symbol itself.
@@ -40,4 +40,10 @@ While a sampling further down includes many word parts, and complete words:
 510          ming
 510          ric
 510          director
+```
+
+## Visualing the Symbols
+
+```
+cargo run --bin visualize-symbols
 ```

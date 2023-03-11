@@ -1,12 +1,11 @@
 #![allow(dead_code)]
-use crate::string_table::StringTable;
 use rand::Rng;
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
-
-mod string_table;
+use std::io::Write;
+use text_embedding::process_wiki_text;
+use text_embedding::StringTable;
 
 type StringIndex = usize;
 
@@ -31,71 +30,6 @@ fn string_slice(string_table: &StringTable, symbols: &[Symbol]) -> String {
     string
 }
 
-fn process_text(file: &str, mut callback: impl FnMut(u32, &str)) {
-    let file = match File::open(file) {
-        Ok(file) => file,
-        Err(e) => {
-            println!("Error opening file: {}", e);
-            return;
-        }
-    };
-
-    let reader = BufReader::new(file);
-
-    let mut id_string = String::new();
-    for raw_line in line_iter(reader) {
-        let raw_line = raw_line.expect("Unable to get next line from the text.");
-
-        // Start processing the string line
-        // "@@1514 Albert of Prussia..."
-        //  ^^
-        if !raw_line.starts_with("@@") {
-            println!("{}", raw_line);
-            panic!("Line does not start with @@");
-        }
-
-        // "1514 Albert of Prussia..."
-        let raw_line = &raw_line[2..];
-
-        // Extract the number part of the string.
-        // "@@1514 Albert of Prussia..."
-        //    ^^^^
-        id_string.clear();
-        for ch in raw_line.chars() {
-            if ch.is_ascii_digit() {
-                id_string.push(ch);
-            } else {
-                break;
-            }
-        }
-        let id = id_string.parse::<u32>().expect("Could not parse a string");
-
-        // Skip the space.
-        // "@@1514 Albert of Prussia..."
-        //        ^
-        if raw_line.as_bytes()[id_string.len()] != ' ' as u8 {
-            panic!("Expected a space after the id");
-        }
-        // "Albert of Prussia..."
-        let text = &raw_line[(id_string.len() + 1)..];
-        callback(id, text);
-    }
-}
-
-/// Skips the preamble, and returns an iterator over the lines.
-fn line_iter(reader: BufReader<File>) -> impl Iterator<Item = std::io::Result<String>> {
-    let mut lines = reader.lines().peekable();
-
-    while let Some(Ok(line)) = lines.peek() {
-        if line.starts_with("@@") {
-            break;
-        } else {
-            lines.next();
-        }
-    }
-    lines.into_iter()
-}
-
 /// Ensure that the paths work when executing from the root directory or inside of
 /// the text-embedding directory.
 fn set_cwd() {
@@ -110,7 +44,7 @@ fn build_dictionary() -> Vec<(String, u32)> {
     println!("Read in dictionary");
     let mut dictionary: HashMap<String, u32> = HashMap::new();
     let mut word = String::new();
-    process_text("./data/text/wiki-en.txt", |_, text| {
+    process_wiki_text("./data/text/wiki-en.txt", |_, text| {
         word.clear();
         for ch in text.chars() {
             if ch.is_alphabetic() {
@@ -123,6 +57,7 @@ fn build_dictionary() -> Vec<(String, u32)> {
                 word.clear();
             }
         }
+        true // continue processing
     });
     let mut dictionary: Vec<(String, u32)> = dictionary.into_iter().collect();
     dictionary.sort_by(|(_, count1), (_, count2)| count2.cmp(count1));
@@ -168,10 +103,11 @@ fn print_dictionary_sample(dictionary: &Vec<(String, u32)>, count: usize) {
 /// Count the number of characters in the entire text.
 fn count_chars() {
     let mut char_counts: HashMap<char, usize> = HashMap::new();
-    process_text("./data/text/wiki-en.txt", |_, text| {
+    process_wiki_text("./data/text/wiki-en.txt", |_, text| {
         for ch in text.chars() {
             *char_counts.entry(ch).or_insert(0) += 1;
         }
+        true // continue processing
     });
     let mut char_vec: Vec<(char, usize)> = char_counts.into_iter().collect();
     char_vec.sort_by(|(_, count1), (_, count2)| count2.cmp(count1));

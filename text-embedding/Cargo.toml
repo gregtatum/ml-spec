@@ -6,3 +6,11 @@ edition = "2018"
 
 [dependencies]
 rand = { workspace = true }
+
+[[bin]]
+name = "build-symbols"
+path = "bin/build-symbols.rs"
+
+[[bin]]
+name = "visualize-symbols"
+path = "bin/visualize-symbols.rs"
