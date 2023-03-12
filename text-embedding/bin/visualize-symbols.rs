@@ -8,6 +8,8 @@ fn add_punctuation_symbols(symbol_table: &mut SymbolTable) {
     symbol_table.index(".");
     symbol_table.index("!");
     symbol_table.index(",");
+    symbol_table.index("\"");
+    symbol_table.index("'");
 
     symbol_table.index("1");
     symbol_table.index("2");
@@ -18,6 +20,9 @@ fn add_punctuation_symbols(symbol_table: &mut SymbolTable) {
     symbol_table.index("7");
     symbol_table.index("8");
     symbol_table.index("9");
+
+    symbol_table.remap_symbol("\t", " ");
+    symbol_table.remap_symbol("\n", " ");
 }
 
 fn build_symbol_table(path: &str) -> SymbolTable {
@@ -35,7 +40,15 @@ fn build_symbol_table(path: &str) -> SymbolTable {
     symbol_table
 }
 
-fn tokenize(symbol_table: &SymbolTable, text: &str) -> Vec<SymbolIndex> {
+fn is_whitespace(slice: &[u8]) -> bool {
+    slice.len() == 1 && slice[0] == b' '
+}
+
+fn is_valid_word_byte(byte: u8) -> bool {
+    byte < 0b1000_0000 && byte >= b'a' && byte <= b'z'
+}
+
+fn symbolize(symbol_table: &SymbolTable, text: &str) -> Vec<SymbolIndex> {
     let mut symbols: Vec<SymbolIndex> = Vec::new();
     let mut start_index = 0;
 
@@ -43,12 +56,38 @@ fn tokenize(symbol_table: &SymbolTable, text: &str) -> Vec<SymbolIndex> {
     // that's in the symbol table.
     let max_symbol_len = symbol_table.max_symbol_len();
 
+    let text = text.as_bytes();
+    let mut prev_is_whitespace = false;
+
     loop {
-        let end_search_index = (start_index + max_symbol_len).min(text.len());
+        // By default search ahead the max symbol length.
+        let mut end_search_index = start_index + max_symbol_len;
+        if start_index >= text.len() {
+            break;
+        }
+
+        if is_valid_word_byte(text[start_index]) {
+            // This is a word, find the word boundary.
+            for index in start_index + 1..start_index + max_symbol_len {
+                if index >= text.len() {
+                    break;
+                }
+                if !is_valid_word_byte(text[index]) {
+                    end_search_index = index;
+                    break;
+                }
+            }
+        } else {
+            // This is not a word.
+            end_search_index = start_index + 1
+        }
+        // Keep the index in bounds.
+        end_search_index = end_search_index.min(text.len());
         if end_search_index == start_index {
             break;
         }
         let prev_start_index = start_index;
+
         // Search backwards.
         // "The quick brown fox"
         //      ^------^    "quick br"
@@ -58,13 +97,32 @@ fn tokenize(symbol_table: &SymbolTable, text: &str) -> Vec<SymbolIndex> {
         for offset in 0..(end_search_index - start_index) {
             let end_index = end_search_index - offset;
             let slice = &text[start_index..end_index];
-            if let Some(index) = symbol_table.maybe_index(slice) {
-                symbols.push(index);
+            let index = unsafe {
+                // The slice may be invalid UTF-8, but it is only used for looking up
+                // symbols, so it's OK to unsafely treat it as valid UTF-8 here.
+                symbol_table.maybe_index(std::str::from_utf8_unchecked(&slice))
+            };
+            if let Some(index) = index {
                 start_index = end_index;
+
+                // Do not add two concurrent pieces of whitespace.
+                if is_whitespace(slice) {
+                    if prev_is_whitespace {
+                        break;
+                    }
+                    prev_is_whitespace = true;
+                } else {
+                    prev_is_whitespace = false;
+                }
+
+                // The symbol was found, add it.
+                symbols.push(index);
                 break;
             }
         }
+
         if prev_start_index == start_index {
+            // This is an unknown character, such as "(" or an emoji.
             start_index += 1;
         }
     }
@@ -85,7 +143,7 @@ fn main() {
         print!("{id}: ");
         let text = text.to_lowercase();
 
-        let symbols = tokenize(&symbol_table, &text);
+        let symbols = symbolize(&symbol_table, &text);
 
         let mut character_count = 0;
         let mut flip_flop = true;
@@ -140,7 +198,7 @@ mod test {
     fn build_test(text: &str) -> Vec<String> {
         let symbol_table = build_symbol_table();
         let text = text.to_lowercase();
-        let symbols = tokenize(&symbol_table, &text);
+        let symbols = symbolize(&symbol_table, &text);
         symbols
             .iter()
             .map(|index| symbol_table.symbol(*index).to_string())
@@ -154,18 +212,37 @@ mod test {
             vec![
                 "the", " ", "quick", " ", "br", "own", " ", "fox", " ", "jump", "s", " ", "over",
                 " ", "the", " ", "la", "zy", " ", "dog"
-            ]
+            ],
+            "Basic symbolizing works."
         );
         assert_eq!(
             build_test("No symbols match here"),
             vec![
                 "n", "o", " ", "s", "y", "m", "b", "o", "l", "s", " ", "m", "a", "t", "c", "h",
                 " ", "h", "e", "r", "e"
-            ]
+            ],
+            "No symbol matches breaks down to individual letters."
         );
         assert_eq!(
-            build_test("The (quick) brown fox."),
-            vec!["the", " ", "quick", " ", "br", "own", " ", "fox", "."]
+            build_test("The (quick) brown🦊 fox."),
+            vec!["the", " ", "quick", " ", "br", "own", " ", "fox", "."],
+            "Unknown characters are ignored."
+        );
+
+        assert_eq!(
+            build_test("The   quick    brown fox  "),
+            vec!["the", " ", "quick", " ", "br", "own", " ", "fox", " "],
+            "Spaces are combined together."
+        );
+        assert_eq!(
+            build_test("The\tquick\tbrown\nfox"),
+            vec!["the", " ", "quick", " ", "br", "own", " ", "fox"],
+            "Some symbols are remapped"
+        );
+        assert_eq!(
+            build_test("Thé quíck brøwn fox"),
+            vec!["t", "h", " ", "q", "u", "c", "k", " ", "br", "w", "n", " ", "fox"],
+            "Diacritical marks are not currently suppported"
         );
     }
 }

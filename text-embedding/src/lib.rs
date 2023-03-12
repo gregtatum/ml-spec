@@ -12,6 +12,7 @@ pub type SymbolIndex = usize;
 pub struct SymbolTable {
     strings: Vec<String>,
     lookup: FxHashMap<String, SymbolIndex>,
+    max_symbol_size: usize,
 }
 
 impl SymbolTable {
@@ -20,7 +21,16 @@ impl SymbolTable {
         SymbolTable {
             strings: Vec::new(),
             lookup: FxHashMap::default(),
+            max_symbol_size: 0,
         }
+    }
+
+    /// Map a symbol into another symbol. For instance, "\t" to " "
+    pub fn remap_symbol<T: Into<String>>(&mut self, from: T, to: &str) {
+        let index = self.index(to);
+        let string = from.into();
+        self.max_symbol_size = self.max_symbol_size.max(string.len());
+        self.lookup.insert(string, index);
     }
 
     /// Interns a string if it exists, and returns the index. Otherwise it discards the
@@ -31,6 +41,7 @@ impl SymbolTable {
         }
         let index = self.strings.len();
         let string: String = string.into();
+        self.max_symbol_size = self.max_symbol_size.max(string.len());
         self.strings.push(string.clone());
         self.lookup.insert(string, index);
         index
@@ -50,11 +61,7 @@ impl SymbolTable {
     }
 
     pub fn max_symbol_len(&self) -> usize {
-        self.strings
-            .iter()
-            .max_by_key(|str| str.len())
-            .expect("Expected a result for max_by_key")
-            .len()
+        self.max_symbol_size
     }
 }
 
