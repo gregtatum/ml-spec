@@ -1,3 +1,4 @@
+use fxhash::*;
 use std::{
     fs::File,
     io::{BufRead, BufReader},
@@ -10,6 +11,7 @@ pub type SymbolIndex = usize;
 #[derive(Debug)]
 pub struct SymbolTable {
     strings: Vec<String>,
+    lookup: FxHashMap<String, SymbolIndex>,
 }
 
 impl SymbolTable {
@@ -17,6 +19,7 @@ impl SymbolTable {
     pub fn new() -> SymbolTable {
         SymbolTable {
             strings: Vec::new(),
+            lookup: FxHashMap::default(),
         }
     }
 
@@ -27,13 +30,15 @@ impl SymbolTable {
             return index;
         }
         let index = self.strings.len();
-        self.strings.push(string.into());
+        let string: String = string.into();
+        self.strings.push(string.clone());
+        self.lookup.insert(string, index);
         index
     }
 
     /// Gets an index for a string if it exists.
     pub fn maybe_index<T: AsRef<str>>(&self, string: T) -> Option<SymbolIndex> {
-        self.strings.iter().position(|s| s == string.as_ref())
+        self.lookup.get(string.as_ref()).map(|index| *index)
     }
 
     /// Returns a string from an index.
@@ -42,6 +47,14 @@ impl SymbolTable {
             Some(string) => &**string,
             None => "",
         }
+    }
+
+    pub fn max_symbol_len(&self) -> usize {
+        self.strings
+            .iter()
+            .max_by_key(|str| str.len())
+            .expect("Expected a result for max_by_key")
+            .len()
     }
 }
 

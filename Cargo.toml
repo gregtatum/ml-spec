@@ -8,3 +8,8 @@ members = [
 term-painter = "0.2.4"
 byteorder = "1.2.1"
 rand = "0.4.1"
+fxhash = "0.2.1"
+
+[profile.performance]
+inherits = "release"
+debug = true

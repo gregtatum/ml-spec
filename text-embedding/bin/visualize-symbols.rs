@@ -34,42 +34,38 @@ fn build_symbol_table(path: &str) -> SymbolTable {
     symbol_table
 }
 
-fn convert_to_symbols(symbol_table: &SymbolTable, text: &str) -> Vec<SymbolIndex> {
+fn tokenize(symbol_table: &SymbolTable, text: &str) -> Vec<SymbolIndex> {
     let mut symbols: Vec<SymbolIndex> = Vec::new();
     let mut start_index = 0;
-    let mut end_index = 1;
-    let mut prev_symbol: Option<SymbolIndex> = None;
+
+    // Start at the max symbol size, and work backwards to find the longest symbol
+    // that's in the symbol table.
+    let max_symbol_len = symbol_table.max_symbol_len();
 
     loop {
-        let slice = &text[start_index..end_index];
-        println!("slice {:?}", slice);
-        if let Some(index) = symbol_table.maybe_index(slice) {
-            end_index += 1;
-            if end_index > text.len() {
-                // This is the last symbol.
-                println!("last symbol {:?}", slice);
+        let end_search_index = (start_index + max_symbol_len).min(text.len());
+        if end_search_index == start_index {
+            break;
+        }
+        let prev_start_index = start_index;
+        // Search backwards.
+        // "The quick brown fox"
+        //      ^------^    "quick br"
+        //      ^-----^     "quick r"
+        //      ^----^      "quick "
+        //      ^---^       "quick"
+        for offset in 0..(end_search_index - start_index) {
+            let end_index = end_search_index - offset;
+            let slice = &text[start_index..end_index];
+            if let Some(index) = symbol_table.maybe_index(slice) {
                 symbols.push(index);
+                start_index = end_index;
                 break;
-            } else {
-                prev_symbol = Some(index);
-                continue;
             }
         }
-        // There was no match for the symbol.
-        if let Some(index) = prev_symbol {
-            println!(
-                "No match, adding previous symbol {:?}",
-                symbol_table.symbol(index)
-            );
-            symbols.push(index);
+        if prev_start_index == start_index {
+            start_index += 1;
         }
-        if end_index - start_index == 1 {
-            // This is an unknown symbols
-            end_index += 1;
-        }
-        prev_symbol = None;
-        start_index = end_index - 1;
-        // end_index += 1;
     }
 
     symbols
@@ -79,19 +75,25 @@ fn main() {
     println!("Building the string table:");
     let symbol_table = build_symbol_table("./data/text/en-dictionary-symbols.txt");
 
-    println!("Processing the wiki text:");
-    let mut i = 0;
+    println!("Symbolizing the wiki text:");
+    let mut i = 1;
     process_wiki_text("./data/text/wiki-en.txt", |_, text| {
-        println!("Processing line {i}:");
-        if i == 10 {
+        if i > 100000 {
             return false;
         }
+        print!("Processing line {i}: ");
         let text = text.to_lowercase();
 
-        let symbols = convert_to_symbols(&symbol_table, &text);
+        let symbols = tokenize(&symbol_table, &text);
 
-        for symbol in &symbols[0..100] {
-            print!("{}", symbol_table.symbol(*symbol));
+        let mut character_count = 0;
+        for index in &symbols {
+            let symbol = symbol_table.symbol(*index);
+            character_count += symbol.len();
+            if character_count > 80 {
+                break;
+            }
+            print!("{}", symbol);
         }
         println!();
 
@@ -121,7 +123,7 @@ mod test {
     fn build_test(text: &str) -> Vec<String> {
         let symbol_table = build_symbol_table();
         let text = text.to_lowercase();
-        let symbols = convert_to_symbols(&symbol_table, &text);
+        let symbols = tokenize(&symbol_table, &text);
         symbols
             .iter()
             .map(|index| symbol_table.symbol(*index).to_string())
@@ -130,6 +132,23 @@ mod test {
 
     #[test]
     fn test_convert_to_symbols() {
-        assert_eq!(build_test("The"), vec!["The"]);
+        assert_eq!(
+            build_test("The quick brown fox jumps over the lazy dog"),
+            vec![
+                "the", " ", "quick", " ", "br", "own", " ", "fox", " ", "jump", "s", " ", "over",
+                " ", "the", " ", "la", "zy", " ", "dog"
+            ]
+        );
+        assert_eq!(
+            build_test("No symbols match here"),
+            vec![
+                "n", "o", " ", "s", "y", "m", "b", "o", "l", "s", " ", "m", "a", "t", "c", "h",
+                " ", "h", "e", "r", "e"
+            ]
+        );
+        assert_eq!(
+            build_test("The (quick) brown fox."),
+            vec!["the", " ", "quick", " ", "br", "own", " ", "fox", "."]
+        );
     }
 }
