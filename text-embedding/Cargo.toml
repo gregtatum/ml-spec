@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 rand = { workspace = true }
 fxhash = { workspace = true }
+colored = { workspace = true }
 
 [[bin]]
 name = "build-symbols"

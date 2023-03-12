@@ -1,3 +1,4 @@
+use colored::*;
 use text_embedding::{process_wiki_text, read_lines, SymbolIndex, SymbolTable};
 
 /// Ensure the vocab has some common punctuation. This should be more complete, but
@@ -74,32 +75,48 @@ fn tokenize(symbol_table: &SymbolTable, text: &str) -> Vec<SymbolIndex> {
 fn main() {
     println!("Building the string table:");
     let symbol_table = build_symbol_table("./data/text/en-dictionary-symbols.txt");
+    let whitespace = symbol_table
+        .maybe_index(" ")
+        .expect("Could not find whitespace");
 
     println!("Symbolizing the wiki text:");
     let mut i = 1;
-    process_wiki_text("./data/text/wiki-en.txt", |_, text| {
-        if i > 100000 {
-            return false;
-        }
-        print!("Processing line {i}: ");
+    process_wiki_text("./data/text/wiki-en.txt", |id, text| {
+        print!("{id}: ");
         let text = text.to_lowercase();
 
         let symbols = tokenize(&symbol_table, &text);
 
         let mut character_count = 0;
+        let mut flip_flop = true;
         for index in &symbols {
             let symbol = symbol_table.symbol(*index);
             character_count += symbol.len();
             if character_count > 80 {
                 break;
             }
-            print!("{}", symbol);
+            if *index == whitespace {
+                print!("{}", symbol);
+            } else {
+                flip_flop = !flip_flop;
+                if flip_flop {
+                    print!("{}", symbol.cyan());
+                } else {
+                    print!("{}", symbol.magenta());
+                }
+            }
         }
         println!();
 
         i += 1;
         true
     });
+
+    println!("");
+    println!("This utility visualizes symbols. The number is the ID of the text.");
+    println!("Each symbol in the vocab is displayed in either cyan or magenta.");
+    println!("Common words should be all one color, and uncommon words should");
+    println!("be composed of multiple symbol parts.");
 }
 
 #[cfg(test)]
