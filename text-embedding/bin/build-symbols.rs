@@ -1,6 +1,6 @@
 #![allow(dead_code)]
+use fxhash::FxHashMap;
 use rand::Rng;
-use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::Write;
@@ -42,7 +42,7 @@ fn set_cwd() {
 
 fn build_dictionary() -> Vec<(String, u32)> {
     println!("Read in dictionary");
-    let mut dictionary: HashMap<String, u32> = HashMap::new();
+    let mut dictionary: FxHashMap<String, u32> = FxHashMap::default();
     let mut word = String::new();
     process_wiki_text("./data/text/wiki-en.txt", |_, text| {
         word.clear();
@@ -102,7 +102,7 @@ fn print_dictionary_sample(dictionary: &Vec<(String, u32)>, count: usize) {
 
 /// Count the number of characters in the entire text.
 fn count_chars() {
-    let mut char_counts: HashMap<char, usize> = HashMap::new();
+    let mut char_counts: FxHashMap<char, usize> = FxHashMap::default();
     process_wiki_text("./data/text/wiki-en.txt", |_, text| {
         for ch in text.chars() {
             *char_counts.entry(ch).or_insert(0) += 1;
@@ -142,32 +142,46 @@ fn build_symbols(
         })
         .collect();
 
+    // HashMaps were slower than using a Vec of the cartesian product of all possible
+    // symbol pairs. This uses more memory, but is about twice as fast overall.
+    let mut symbol_pair_counts: Vec<u32> = Vec::new();
+
     for _ in 0..iterations {
+        // Zero out the symbol pairs.
+        let symbols_len = symbol_table.len();
+        symbol_pair_counts.clear();
+        symbol_pair_counts.resize(symbols_len * symbols_len, 0);
+
         // Count the symbol pairs.
-        let mut symbol_pair_counts: HashMap<(Symbol, Symbol), u32> = HashMap::new();
         for (word, frequency) in &dictionary {
             for slice in word.windows(2) {
-                let pair: (Symbol, Symbol) = (slice[0].clone(), slice[1].clone());
-                *symbol_pair_counts.entry(pair).or_insert(0) += frequency;
+                // Use the cartesian product of the symbol pairs.
+                let cartesian_index = symbols_len * slice[0].index() + slice[1].index();
+                *symbol_pair_counts
+                    .get_mut(cartesian_index)
+                    .expect("Failed to get symbol count") += frequency;
             }
         }
 
         // Get the largest pair.
-        let (pair_to_merge, _) = symbol_pair_counts
+        let (index_pair, _) = symbol_pair_counts
             .iter()
-            .max_by_key(|(_, frequency)| *frequency)
-            .unwrap();
+            .enumerate()
+            .max_by_key(|(_, &value)| value)
+            .expect("Failed to get max_by_key");
 
+        let symbol_a = Symbol(index_pair / symbols_len);
+        let symbol_b = Symbol(index_pair % symbols_len);
         println!(
             "Merge: {}{}",
-            pair_to_merge.0.string(&symbol_table),
-            pair_to_merge.1.string(&symbol_table)
+            symbol_a.string(&symbol_table),
+            symbol_b.string(&symbol_table)
         );
 
         // Create the new merged symbol.
         let merged_symbol: Symbol = {
-            let mut merged_string = pair_to_merge.0.string(&symbol_table).to_string();
-            merged_string.push_str(pair_to_merge.1.string(&symbol_table));
+            let mut merged_string = symbol_a.string(&symbol_table).to_string();
+            merged_string.push_str(symbol_b.string(&symbol_table));
             Symbol(symbol_table.index(merged_string))
         };
 
@@ -177,7 +191,7 @@ fn build_symbols(
             while check_word {
                 check_word = false;
                 for (index, slice) in word.windows(2).enumerate() {
-                    if slice[0] == pair_to_merge.0 && slice[1] == pair_to_merge.1 {
+                    if slice[0] == symbol_a && slice[1] == symbol_b {
                         check_word = true;
                         let mut new_word: Vec<Symbol> = Vec::new();
                         new_word.extend(&word[0..index]);
@@ -192,7 +206,7 @@ fn build_symbols(
     }
 
     // Compute the final symbol frequency.
-    let mut final_symbols = HashMap::new();
+    let mut final_symbols = FxHashMap::default();
     for (symbols, frequency) in dictionary {
         for symbol in symbols {
             *final_symbols.entry(symbol).or_insert(0) += frequency;
@@ -208,7 +222,7 @@ fn build_symbols(
 
 // Reports on the symbol pairs.
 fn report_symbol_pairs(
-    symbol_pair_counts: &HashMap<(Symbol, Symbol), u32>,
+    symbol_pair_counts: &FxHashMap<(Symbol, Symbol), u32>,
     symbol_table: &SymbolTable,
 ) {
     // Sort the pairs by frequency.

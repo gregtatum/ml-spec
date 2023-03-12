@@ -10,8 +10,8 @@ pub type SymbolIndex = usize;
 /// indexes. This makes for cheap comparisons and storage of references to strings.
 #[derive(Debug)]
 pub struct SymbolTable {
-    strings: Vec<String>,
-    lookup: FxHashMap<String, SymbolIndex>,
+    symbols: Vec<String>,
+    indexes: FxHashMap<String, SymbolIndex>,
     max_symbol_size: usize,
 }
 
@@ -19,10 +19,15 @@ impl SymbolTable {
     /// Create a new SymbolTable.
     pub fn new() -> SymbolTable {
         SymbolTable {
-            strings: Vec::new(),
-            lookup: FxHashMap::default(),
+            symbols: Vec::new(),
+            indexes: FxHashMap::default(),
             max_symbol_size: 0,
         }
+    }
+
+    /// Lookup the amount of symbols.
+    pub fn len(&self) -> usize {
+        self.symbols.len()
     }
 
     /// Map a symbol into another symbol. For instance, "\t" to " "
@@ -30,7 +35,7 @@ impl SymbolTable {
         let index = self.index(to);
         let string = from.into();
         self.max_symbol_size = self.max_symbol_size.max(string.len());
-        self.lookup.insert(string, index);
+        self.indexes.insert(string, index);
     }
 
     /// Interns a string if it exists, and returns the index. Otherwise it discards the
@@ -39,22 +44,22 @@ impl SymbolTable {
         if let Some(index) = self.maybe_index(string.as_ref()) {
             return index;
         }
-        let index = self.strings.len();
+        let index = self.symbols.len();
         let string: String = string.into();
         self.max_symbol_size = self.max_symbol_size.max(string.len());
-        self.strings.push(string.clone());
-        self.lookup.insert(string, index);
+        self.symbols.push(string.clone());
+        self.indexes.insert(string, index);
         index
     }
 
     /// Gets an index for a string if it exists.
     pub fn maybe_index<T: AsRef<str>>(&self, string: T) -> Option<SymbolIndex> {
-        self.lookup.get(string.as_ref()).map(|index| *index)
+        self.indexes.get(string.as_ref()).map(|index| *index)
     }
 
     /// Returns a string from an index.
     pub fn symbol(&self, index: SymbolIndex) -> &str {
-        match self.strings.get(index) {
+        match self.symbols.get(index) {
             Some(string) => &**string,
             None => "",
         }
