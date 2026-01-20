@@ -1,8 +1,9 @@
 #![allow(dead_code, non_snake_case)]
+
 /// Compute the levenstein distance between two numbers, also known as the edit distance.
 /// Edit types:
 ///   Insertions, deletions, substitutes
-pub fn levenstein_distance(s: &str, t: &str) -> i32 {
+pub fn levenstein_distance_ref(s: &str, t: &str) -> i32 {
     // Let:
     // s = source string of length m
     // t = target string of length n
@@ -83,6 +84,36 @@ pub fn levenstein_distance(s: &str, t: &str) -> i32 {
     return D[m][n];
 }
 
+/// An optimized version of the levenstein distance function.
+pub fn levenstein_distance_opt(s: &str, t: &str) -> i32 {
+    let s: Vec<char> = s.chars().collect();
+    let t: Vec<char> = t.chars().collect();
+    let m = s.len();
+    let n = t.len();
+    let mut D: Vec<Vec<i32>> = Vec::new();
+    for _ in 0..(m + 1) {
+        D.push(vec![0; n + 1]);
+    }
+    for i in 0..=m {
+        D[i][0] = i as i32;
+    }
+    for j in 0..=n {
+        D[0][j] = j as i32;
+    }
+
+    for i in 1..=m {
+        for j in 1..=n {
+            let delete_cost = D[i - 1][j] + 1;
+            let insert_cost = D[i][j - 1] + 1;
+            let substitute_cost = D[i - 1][j - 1] + if s[i - 1] == t[j - 1] { 0 } else { 1 };
+
+            D[i][j] = delete_cost.min(insert_cost).min(substitute_cost);
+        }
+    }
+
+    return D[m][n];
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -92,9 +123,8 @@ mod tests {
         cases: Vec<(&'static str, &'static str, i32)>,
     }
 
-    #[test]
-    fn test_levenstein_distance() {
-        let cases = vec![
+    fn get_cases() -> Vec<LevensteinCases> {
+        vec![
             LevensteinCases {
                 description: "Identity",
                 cases: vec![("", "", 0), ("a", "a", 0), ("hello", "hello", 0)],
@@ -137,14 +167,32 @@ mod tests {
                 description: "Symmetry checks.",
                 cases: vec![("hello", "world", 4), ("world", "hello", 4)],
             },
-        ];
+        ]
+    }
 
-        for LevensteinCases { description, cases } in cases {
+    #[test]
+    fn test_levenstein_distance_ref() {
+        for LevensteinCases { description, cases } in get_cases() {
             println!("\nCases: {}", description);
             for (str_a, str_b, value) in cases {
                 println!(" - {} vs {}", str_a, str_b);
                 assert_eq!(
-                    levenstein_distance(str_a, str_b),
+                    levenstein_distance_ref(str_a, str_b),
+                    value,
+                    "{description}: {str_a} vs {str_b}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_levenstein_distance_opt() {
+        for LevensteinCases { description, cases } in get_cases() {
+            println!("\nCases: {}", description);
+            for (str_a, str_b, value) in cases {
+                println!(" - {} vs {}", str_a, str_b);
+                assert_eq!(
+                    levenstein_distance_opt(str_a, str_b),
                     value,
                     "{description}: {str_a} vs {str_b}"
                 );
