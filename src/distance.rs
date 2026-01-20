@@ -105,6 +105,28 @@ pub fn levenstein_distance_ref(s: &str, t: &str) -> i32 {
 ///   Memory space is O(n) because we reuse a single DP row (plus O(m+n) to
 ///   materialize the input strings as `Vec<char>` for indexing).
 pub fn levenstein_distance_opt(s: &str, t: &str) -> i32 {
+    // Fast path: identical strings, no DP needed. Runs in O(n) byte comparison.
+    if s == t {
+        return 0;
+    }
+
+    // Fast path: empty input reduces to the other string length (O(k) for char count).
+    if s.is_empty() {
+        return t.chars().count() as i32;
+    }
+
+    // Same as above, symmetric case.
+    if t.is_empty() {
+        return s.chars().count() as i32;
+    }
+
+    // Keep the DP row sized to the shorter string to reduce space to O(min(m, n)).
+    let (s, t) = if s.chars().count() <= t.chars().count() {
+        (s, t)
+    } else {
+        (t, s)
+    };
+
     let s: Vec<char> = s.chars().collect();
     let t: Vec<char> = t.chars().collect();
     let m = s.len();
