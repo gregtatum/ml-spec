@@ -2,6 +2,12 @@
 
 Algorithm implementations and specs that back up machine learning fundamentals.
 
+## Run
+
+```bash
+cargo test -p algorithms
+```
+
 ## Levenshtein Distance
 
 This project includes three Levenshtein distance implementations in

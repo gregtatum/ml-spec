@@ -3,8 +3,10 @@
 Neural network experiments inspired by
 [3Blue1Brown's YouTube series](https://www.youtube.com/watch?v=aircAruvnKk&list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi).
 
+## Run
+
 ```bash
-cargo run --bin output-mnist-images
+cargo run -p feed-forward --bin output-mnist-images
 ```
 
 ## Notes
