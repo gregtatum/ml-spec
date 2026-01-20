@@ -4,6 +4,7 @@ members = [
     "feed-forward",
     "text-embedding",
 ]
+resolver = "3"
 
 [workspace.dependencies]
 term-painter = "0.2.4"
