@@ -1,8 +1,21 @@
 #![allow(dead_code, non_snake_case)]
 
 /// Compute the levenstein distance between two numbers, also known as the edit distance.
+///
 /// Edit types:
 ///   Insertions, deletions, substitutes
+///
+/// Algorithmic Complexity:
+///   O(m*n) time because we fill an (m+1) by (n+1) DP table.
+///
+///   Memory space is O(m*n) because we store the full table to reuse
+///   neighbors when computing each entry, plus O(m+n) to materialize the input
+///   strings as `Vec<char>` for indexing.
+///
+/// Note:
+///   DP (dynamic programming) means we solve larger subproblems by combining
+///   already-solved smaller ones; here each cell depends on its left, top, and
+///   top-left neighbors.
 pub fn levenstein_distance_ref(s: &str, t: &str) -> i32 {
     // Let:
     // s = source string of length m
