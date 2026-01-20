@@ -98,33 +98,34 @@ pub fn levenstein_distance_ref(s: &str, t: &str) -> i32 {
 }
 
 /// An optimized version of the levenstein distance function.
+///
+/// Algorithmic Complexity:
+///   O(m*n) time because we still evaluate each cell in the DP grid.
+///
+///   Memory space is O(n) because we only keep the previous and current rows
+///   of the DP table (plus O(m+n) to materialize the input strings as
+///   `Vec<char>` for indexing).
 pub fn levenstein_distance_opt(s: &str, t: &str) -> i32 {
     let s: Vec<char> = s.chars().collect();
     let t: Vec<char> = t.chars().collect();
     let m = s.len();
     let n = t.len();
-    let mut D: Vec<Vec<i32>> = Vec::new();
-    for _ in 0..(m + 1) {
-        D.push(vec![0; n + 1]);
-    }
-    for i in 0..=m {
-        D[i][0] = i as i32;
-    }
-    for j in 0..=n {
-        D[0][j] = j as i32;
-    }
+    let mut prev_row: Vec<i32> = (0..=n).map(|j| j as i32).collect();
+    let mut curr_row: Vec<i32> = vec![0; n + 1];
 
     for i in 1..=m {
+        curr_row[0] = i as i32;
         for j in 1..=n {
-            let delete_cost = D[i - 1][j] + 1;
-            let insert_cost = D[i][j - 1] + 1;
-            let substitute_cost = D[i - 1][j - 1] + if s[i - 1] == t[j - 1] { 0 } else { 1 };
+            let delete_cost = prev_row[j] + 1;
+            let insert_cost = curr_row[j - 1] + 1;
+            let substitute_cost = prev_row[j - 1] + if s[i - 1] == t[j - 1] { 0 } else { 1 };
 
-            D[i][j] = delete_cost.min(insert_cost).min(substitute_cost);
+            curr_row[j] = delete_cost.min(insert_cost).min(substitute_cost);
         }
+        std::mem::swap(&mut prev_row, &mut curr_row);
     }
 
-    return D[m][n];
+    return prev_row[n];
 }
 
 #[cfg(test)]
