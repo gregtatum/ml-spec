@@ -127,22 +127,29 @@ pub fn levenstein_distance_opt(s: &str, t: &str) -> i32 {
         (t, s)
     };
 
+    // Materialize Unicode scalar values for O(1) indexing during DP.
     let s: Vec<char> = s.chars().collect();
     let t: Vec<char> = t.chars().collect();
     let m = s.len();
     let n = t.len();
+    // One row of the DP table; the ref version stores (m+1)*(n+1) cells.
+    // This keeps only O(n) cells (O(min(m, n)) after the swap) instead of O(m*n).
     let mut row: Vec<i32> = (0..=n).map(|j| j as i32).collect();
 
     for i in 1..=m {
+        // Save the top-left neighbor before overwriting row[0].
         let mut prev_diag = row[0];
         row[0] = i as i32;
         for j in 1..=n {
+            // Preserve the old row[j] (the "top" neighbor) for next iteration.
             let old = row[j];
+            // Use the top, left, and top-left neighbors to compute this cell.
             let delete_cost = row[j] + 1;
             let insert_cost = row[j - 1] + 1;
             let substitute_cost = prev_diag + if s[i - 1] == t[j - 1] { 0 } else { 1 };
 
             row[j] = delete_cost.min(insert_cost).min(substitute_cost);
+            // Shift the diagonal for the next column.
             prev_diag = old;
         }
     }
