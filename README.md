@@ -1,24 +1,53 @@
-# ml-rs
+# ml-spec
 
-# Feed Forward
+Consolidated workspace for ML experiments and specs.
 
-This project is me playing around with neural network ideas from [3Blue1Brown's YouTube series](https://www.youtube.com/watch?v=aircAruvnKk&list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi). It really doesn't do much yet.
+## Workspace layout
 
-```
+- `algorithms`: reference and optimized algorithm implementations.
+- `feed-forward`: neural network experiments inspired by 3Blue1Brown.
+- `text-embedding`: text embedding experiments and notes.
+
+## Algorithms
+
+### Levenshtein Distance
+
+This repo includes three Levenshtein distance implementations in
+`algorithms/src/distance.rs`:
+
+- `levenstein_distance_ref`: a reference dynamic programming implementation
+  that materializes a full (m+1) x (n+1) table for clarity.
+- `levenstein_distance_opt`: an optimized variant that uses a single DP row and
+  early-exit fast paths, with O(min(m, n)) space.
+- `levenstein_distance_byte_opt`: a byte-based optimized version that operates
+  on UTF-8 bytes (faster and lower allocation, but semantics differ from the
+  Unicode scalar approach for non-ASCII input).
+
+All three share the same ASCII test cases, and the byte variant is expected to
+match those results.
+
+## Feed Forward
+
+This project is me playing around with neural network ideas from
+[3Blue1Brown's YouTube series](https://www.youtube.com/watch?v=aircAruvnKk&list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi).
+It really doesn't do much yet.
+
+```bash
 cargo run --bin output-mnist-images
 ```
 
-# Text Embedding
+## Text Embedding
 
 Explorations in text embedding.
 
-## Notes
+### Notes
 
 Activation - The number that each node in the neural network holds.
 Weight - The value connecting each node to the next node in the next layer.
 Hidden layer - The layers between the input and the output.
 
-Activations should be ranged 0-1. A common function to do this is called the sigmoid function.
+Activations should be ranged 0-1. A common function to do this is called the
+sigmoid function.
 
 Logistics curve:
 σ(x) = 1 / ( 1 + e^-x )
@@ -27,7 +56,8 @@ This is applied by:
 
 Activation = σ(w1a1 + w2a2 + w3a3 + ... + wnan)
 
-Then there is a bias added in. The weight tells you the general weight, and the bias applies how much this value should activate the neuron.
+Then there is a bias added in. The weight tells you the general weight, and the
+bias applies how much this value should activate the neuron.
 
 Activation = σ(w1a1 + w2a2 + w3a3 + ... + wnan - bias)
 Feed forward:
@@ -38,14 +68,14 @@ Learning: Finding the right weights and biases to solve your problem.
 
 In order to train the neural network you need a cost function.
 
-## Other helpful articles
+### Other helpful articles
 
 * https://towardsdatascience.com/step-by-step-tutorial-on-linear-regression-with-stochastic-gradient-descent-1d35b088a843
 * http://neuralnetworksanddeeplearning.com/
 
-## Formulas:
+### Formulas
 
-## Back-propagating the weight
+### Back-propagating the weight
 
 $$\Large
 {\partial C     \over \partial w^L_{jk}}
@@ -62,7 +92,7 @@ $$\large
 a^L_j
 $$
 
-## Back-propagating the bias
+### Back-propagating the bias
 
 $$\Large
 {\partial C     \over \partial b^L_{jk}}
@@ -77,8 +107,7 @@ $$\large
 \sigma'(z^L_{jk})                         \cdot
 $$
 
-## Backpropagation
-
+### Backpropagation
 
 The cost function is defined as:
 
@@ -102,8 +131,7 @@ The cost function is defined as:
 | ${\Large \partial C_0 \over \partial w^{(L)}} = a^{(L-1)} \sigma'(z^{(L)}) 2(a^{(L)} - y)$ | The formula for the derivative
 | ${\Large \partial C_0 \over \partial w^{(L)}} = {\Large 1 \over n} \ \ {\Large \sum_{k=0}^{n-1}} \ \ {\Large \partial C_k \over \partial w^{(L)}}$ | Derivative of the full cost function is the average of all training examples.
 
-
-## Applying the weights
+### Applying the weights
 
 The weight of the next training round $t + 1$:
 
