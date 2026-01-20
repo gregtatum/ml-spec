@@ -208,8 +208,12 @@ pub fn levenstein_distance_byte_opt(s: &str, t: &str) -> i32 {
             // Use the top, left, and top-left neighbors to compute this cell.
             let delete_cost = row[j] + 1;
             let insert_cost = row[j - 1] + 1;
-            let substitute_cost =
-                prev_diag + if s_bytes[i - 1] == t_bytes[j - 1] { 0 } else { 1 };
+            let substitute_cost = prev_diag
+                + if s_bytes[i - 1] == t_bytes[j - 1] {
+                    0
+                } else {
+                    1
+                };
 
             row[j] = delete_cost.min(insert_cost).min(substitute_cost);
             // Shift the diagonal for the next column.
