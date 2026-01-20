@@ -3,9 +3,6 @@
 /// Edit types:
 ///   Insertions, deletions, substitutes
 pub fn levenstein_distance(s: &str, t: &str) -> i32 {
-    println!("s: {:?}", s);
-    println!("t: {:?}", t);
-
     // Let:
     // s = source string of length m
     // t = target string of length n
@@ -22,12 +19,6 @@ pub fn levenstein_distance(s: &str, t: &str) -> i32 {
     for _ in 0..(m + 1) {
         D.push(vec![0; n + 1]);
     }
-
-    println!("s: {:?}", s);
-    println!("t: {:?}", t);
-    println!("m: {:?}", m);
-    println!("n: {:?}", n);
-    println!("D: {:?}", D);
 
     // Set the base cases.
     for i in 0..=m {
@@ -96,42 +87,68 @@ pub fn levenstein_distance(s: &str, t: &str) -> i32 {
 mod tests {
     use super::*;
 
+    struct LevensteinCases {
+        description: &'static str,
+        cases: Vec<(&'static str, &'static str, i32)>,
+    }
+
     #[test]
     fn test_levenstein_distance() {
         let cases = vec![
-            // Identity
-            ("", "", 0),
-            ("a", "a", 0),
-            ("hello", "hello", 0),
-            // Single edit
-            ("a", "b", 1),
-            ("hello", "hallo", 1),
-            ("stone", "stony", 1),
-            ("sound", "found", 1),
-            // Insertion / deletion.
-            ("", "a", 1),
-            ("a", "", 1),
-            ("test", "tests", 1),
-            ("tests", "test", 1),
-            // Distance = 2
-            ("ab", "ba", 2),
-            ("crate", "trace", 2),
-            ("stone", "money", 2),
-            ("plane", "plans", 2),
-            // Distance = 3
-            ("kitten", "sitting", 3),
-            ("sunday", "saturday", 3),
-            ("apple", "grape", 3),
-            // Prefix/suffix behavior.
-            ("abc", "abcde", 2),
-            ("abcde", "abc", 2),
-            // Symmetry checks.
-            ("hello", "world", 4),
-            ("world", "hello", 4),
+            LevensteinCases {
+                description: "Identity",
+                cases: vec![("", "", 0), ("a", "a", 0), ("hello", "hello", 0)],
+            },
+            LevensteinCases {
+                description: "Single edit",
+                cases: vec![
+                    ("a", "b", 1),
+                    ("hello", "hallo", 1),
+                    ("stone", "stony", 1),
+                    ("sound", "found", 1),
+                ],
+            },
+            LevensteinCases {
+                description: "Insertion / deletion.",
+                cases: vec![
+                    ("", "a", 1),
+                    ("a", "", 1),
+                    ("test", "tests", 1),
+                    ("tests", "test", 1),
+                ],
+            },
+            LevensteinCases {
+                description: "Various distances",
+                cases: vec![
+                    ("ab", "ba", 2),
+                    ("crate", "trace", 2),
+                    ("stone", "money", 3),
+                    ("plane", "plans", 1),
+                    ("kitten", "sitting", 3),
+                    ("sunday", "saturday", 3),
+                    ("apple", "grape", 4),
+                ],
+            },
+            LevensteinCases {
+                description: "Prefix/suffix behavior.",
+                cases: vec![("abc", "abcde", 2), ("abcde", "abc", 2)],
+            },
+            LevensteinCases {
+                description: "Symmetry checks.",
+                cases: vec![("hello", "world", 4), ("world", "hello", 4)],
+            },
         ];
 
-        for (str_a, str_b, value) in cases {
-            assert_eq!(levenstein_distance(str_a, str_b), value);
+        for LevensteinCases { description, cases } in cases {
+            println!("\nCases: {}", description);
+            for (str_a, str_b, value) in cases {
+                println!(" - {} vs {}", str_a, str_b);
+                assert_eq!(
+                    levenstein_distance(str_a, str_b),
+                    value,
+                    "{description}: {str_a} vs {str_b}"
+                );
+            }
         }
     }
 }
