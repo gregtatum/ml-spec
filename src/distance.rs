@@ -157,6 +157,69 @@ pub fn levenstein_distance_opt(s: &str, t: &str) -> i32 {
     return row[n];
 }
 
+/// An optimized byte-based version of the levenstein distance function.
+///
+/// Algorithmic Complexity:
+///   O(m*n) time because we still evaluate each cell in the DP grid.
+///
+///   Memory space is O(n) because we reuse a single DP row, and we avoid
+///   materializing `Vec<char>` by operating directly on byte slices.
+///
+/// Note:
+///   Operates on UTF-8 bytes, not Unicode scalar values, so results can differ
+///   from the ref implementation for non-ASCII input.
+pub fn levenstein_distance_byte_opt(s: &str, t: &str) -> i32 {
+    // Fast path: identical strings, no DP needed. Runs in O(n) byte comparison.
+    if s == t {
+        return 0;
+    }
+
+    let s_bytes = s.as_bytes();
+    let t_bytes = t.as_bytes();
+
+    // Fast path: empty input reduces to the other string length in bytes.
+    if s_bytes.is_empty() {
+        return t_bytes.len() as i32;
+    }
+    if t_bytes.is_empty() {
+        return s_bytes.len() as i32;
+    }
+
+    // Keep the DP row sized to the shorter byte slice to reduce space to O(min(m, n)).
+    let (s_bytes, t_bytes) = if s_bytes.len() <= t_bytes.len() {
+        (s_bytes, t_bytes)
+    } else {
+        (t_bytes, s_bytes)
+    };
+    let m = s_bytes.len();
+    let n = t_bytes.len();
+
+    // One row of the DP table; the ref version stores (m+1)*(n+1) cells.
+    // This keeps only O(n) cells (O(min(m, n)) after the swap) instead of O(m*n).
+    let mut row: Vec<i32> = (0..=n).map(|j| j as i32).collect();
+
+    for i in 1..=m {
+        // Save the top-left neighbor before overwriting row[0].
+        let mut prev_diag = row[0];
+        row[0] = i as i32;
+        for j in 1..=n {
+            // Preserve the old row[j] (the "top" neighbor) for next iteration.
+            let old = row[j];
+            // Use the top, left, and top-left neighbors to compute this cell.
+            let delete_cost = row[j] + 1;
+            let insert_cost = row[j - 1] + 1;
+            let substitute_cost =
+                prev_diag + if s_bytes[i - 1] == t_bytes[j - 1] { 0 } else { 1 };
+
+            row[j] = delete_cost.min(insert_cost).min(substitute_cost);
+            // Shift the diagonal for the next column.
+            prev_diag = old;
+        }
+    }
+
+    return row[n];
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,6 +299,21 @@ mod tests {
                 println!(" - {} vs {}", str_a, str_b);
                 assert_eq!(
                     levenstein_distance_opt(str_a, str_b),
+                    value,
+                    "{description}: {str_a} vs {str_b}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_levenstein_distance_byte_opt() {
+        for LevensteinCases { description, cases } in get_cases() {
+            println!("\nCases: {}", description);
+            for (str_a, str_b, value) in cases {
+                println!(" - {} vs {}", str_a, str_b);
+                assert_eq!(
+                    levenstein_distance_byte_opt(str_a, str_b),
                     value,
                     "{description}: {str_a} vs {str_b}"
                 );
